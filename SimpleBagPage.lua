@@ -101,8 +101,10 @@ local function HookElvUIBags()
     return
   end
 
+  ---@diagnostic disable-next-line: undefined-field
   local elvuiTable = _G.ElvUI
   local E = elvuiTable and elvuiTable[1]
+  ---@diagnostic disable-next-line: undefined-field
   local bags = E and E.Bags
   if not bags or type(bags.UpdateContainerFrameAnchors) ~= "function" then
     return
