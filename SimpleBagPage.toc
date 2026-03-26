@@ -2,10 +2,11 @@
 ## Title: SimpleBagPage
 ## Notes: Light bag tweaks for Blizzard bags: frame scale, stack count text, and reagent bag gap.
 ## Author: natyaphis
-## Version: 1.0.0
+## Version: 1.0.1
 ## IconTexture: Interface\Icons\INV_Misc_Bag_10_Blue
 ## Category-enUS: Interface
 ## Category-zhCN: 界面增强
 ## LoadOnDemand: 0
+## SavedVariables: SimpleBagPageDB
 
 SimpleBagPage.lua
