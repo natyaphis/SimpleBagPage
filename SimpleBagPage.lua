@@ -20,6 +20,8 @@ local DEFAULTS = {
   disableAuctionHouseAutoOpen = true,
 }
 
+local pendingLayoutUpdate = false
+
 local function GetDB()
   if type(_G.SimpleBagPageDB) ~= "table" then
     _G.SimpleBagPageDB = {}
@@ -51,9 +53,29 @@ end
 
 local function ApplyTextStyle(button)
   if button.Count then
-    button.Count:SetFont(CONFIG.countFont, CONFIG.countFontSize, CONFIG.countOutline)
-    button.Count:ClearAllPoints()
-    button.Count:SetPoint(CONFIG.countAnchor[1], button, CONFIG.countAnchor[1], CONFIG.countAnchor[2], CONFIG.countAnchor[3])
+    local count = button.Count
+    local anchorPoint = CONFIG.countAnchor[1]
+    local anchorX = CONFIG.countAnchor[2]
+    local anchorY = CONFIG.countAnchor[3]
+
+    if count.__simpleBagPageFont ~= CONFIG.countFont
+      or count.__simpleBagPageFontSize ~= CONFIG.countFontSize
+      or count.__simpleBagPageOutline ~= CONFIG.countOutline then
+      count:SetFont(CONFIG.countFont, CONFIG.countFontSize, CONFIG.countOutline)
+      count.__simpleBagPageFont = CONFIG.countFont
+      count.__simpleBagPageFontSize = CONFIG.countFontSize
+      count.__simpleBagPageOutline = CONFIG.countOutline
+    end
+
+    if count.__simpleBagPageAnchorPoint ~= anchorPoint
+      or count.__simpleBagPageAnchorX ~= anchorX
+      or count.__simpleBagPageAnchorY ~= anchorY then
+      count:ClearAllPoints()
+      count:SetPoint(anchorPoint, button, anchorPoint, anchorX, anchorY)
+      count.__simpleBagPageAnchorPoint = anchorPoint
+      count.__simpleBagPageAnchorX = anchorX
+      count.__simpleBagPageAnchorY = anchorY
+    end
   end
 end
 
@@ -106,12 +128,32 @@ local function ApplyAllLayouts()
 
   for i = 1, NUM_CONTAINER_FRAMES do
     local frame = _G["ContainerFrame" .. i]
-    if frame and frame:IsShown() then
+    if frame then
       ApplyContainerScale(frame)
+    end
+
+    if frame and frame:IsShown() then
       ApplyContainerLayout(frame)
     end
   end
 
+  ApplyCombinedReagentGap()
+end
+
+local function RequestLayoutUpdate()
+  if pendingLayoutUpdate then
+    return
+  end
+
+  pendingLayoutUpdate = true
+  C_Timer.After(0, function()
+    pendingLayoutUpdate = false
+    ApplyAllLayouts()
+  end)
+end
+
+local function ApplyContainerUpdate(container)
+  ApplyContainerLayout(container)
   ApplyCombinedReagentGap()
 end
 
@@ -121,12 +163,17 @@ local function HookContainer(container)
   end
 
   container.__simpleBagPageHooked = true
+  ApplyContainerScale(container)
 
   if container.UpdateItems then
-    hooksecurefunc(container, "UpdateItems", ApplyAllLayouts)
+    hooksecurefunc(container, "UpdateItems", function()
+      ApplyContainerUpdate(container)
+    end)
   end
 
-  container:HookScript("OnShow", ApplyAllLayouts)
+  container:HookScript("OnShow", function()
+    ApplyContainerUpdate(container)
+  end)
 end
 
 local function HookElvUIBags()
@@ -264,7 +311,7 @@ local function Initialize()
       HookContainer(_G["ContainerFrame" .. i])
     end
 
-    ApplyAllLayouts()
+    RequestLayoutUpdate()
   end)
 
   hooksecurefunc("UpdateContainerFrameAnchors", ApplyAllLayouts)
