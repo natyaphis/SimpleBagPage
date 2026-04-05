@@ -194,28 +194,9 @@ local function HookElvUIBags()
   _G.SimpleBagPageElvUIHooked = true
 end
 
-local function HookAuctionHouseAutoOpen()
-  if _G.SimpleBagPageAuctionHooked then
-    return
-  end
-
-  local originalOpenAllBags = _G.OpenAllBags
-  if type(originalOpenAllBags) == "function" then
-    _G.OpenAllBags = function(frame, forceUpdate)
-      if IsAuctionHouseAutoOpenDisabled() and IsAuctionHouseFrame(frame) then
-        return
-      end
-
-      return originalOpenAllBags(frame, forceUpdate)
-    end
-  end
-
-  _G.SimpleBagPageAuctionHooked = true
-end
-
-local function HookElvUIAuctionAutoOpen()
-  if _G.SimpleBagPageElvUIAuctionHooked then
-    return
+local function CloseAuctionHouseBags()
+  if _G.CloseAllBags and _G.AuctionHouseFrame and _G.AuctionHouseFrame:IsShown() then
+    _G.CloseAllBags(_G.AuctionHouseFrame)
   end
 
   ---@diagnostic disable-next-line: undefined-field
@@ -223,20 +204,21 @@ local function HookElvUIAuctionAutoOpen()
   local E = elvuiTable and elvuiTable[1]
   ---@diagnostic disable-next-line: undefined-field
   local bags = E and E.Bags
-  if not bags or type(bags.AutoToggleFunction) ~= "function" then
+  if bags and type(bags.CloseAllBags) == "function" then
+    bags:CloseAllBags()
+  end
+end
+
+local function RequestAuctionHouseBagClose()
+  if not IsAuctionHouseAutoOpenDisabled() then
     return
   end
 
-  local originalAutoToggleFunction = bags.AutoToggleFunction
-  bags.AutoToggleFunction = function(event, ...)
-    if IsAuctionHouseAutoOpenDisabled() and event == "AUCTION_HOUSE_SHOW" then
-      return
+  C_Timer.After(0, function()
+    if _G.AuctionHouseFrame and _G.AuctionHouseFrame:IsShown() then
+      CloseAuctionHouseBags()
     end
-
-    return originalAutoToggleFunction(event, ...)
-  end
-
-  _G.SimpleBagPageElvUIAuctionHooked = true
+  end)
 end
 
 local function HookItemButtonCount()
@@ -287,9 +269,7 @@ end
 local function Initialize()
   IsAuctionHouseAutoOpenDisabled()
   HookItemButtonCount()
-  HookAuctionHouseAutoOpen()
   HookElvUIBags()
-  HookElvUIAuctionAutoOpen()
   HookContainer(ContainerFrameCombinedBags)
   RegisterSlashCommands()
 
@@ -301,14 +281,17 @@ local function Initialize()
   frame:RegisterEvent("BAG_UPDATE_DELAYED")
   frame:RegisterEvent("PLAYER_ENTERING_WORLD")
   frame:RegisterEvent("BANKFRAME_OPENED")
+  frame:RegisterEvent("AUCTION_HOUSE_SHOW")
   frame:SetScript("OnEvent", function(_, event, ...)
-    HookAuctionHouseAutoOpen()
     HookElvUIBags()
-    HookElvUIAuctionAutoOpen()
     HookContainer(ContainerFrameCombinedBags)
 
     for i = 1, NUM_CONTAINER_FRAMES do
       HookContainer(_G["ContainerFrame" .. i])
+    end
+
+    if event == "AUCTION_HOUSE_SHOW" then
+      RequestAuctionHouseBagClose()
     end
 
     RequestLayoutUpdate()
