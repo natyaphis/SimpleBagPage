@@ -204,7 +204,7 @@ local function CloseAuctionHouseBags()
   local E = elvuiTable and elvuiTable[1]
   ---@diagnostic disable-next-line: undefined-field
   local bags = E and E.Bags
-  if bags and type(bags.CloseAllBags) == "function" then
+  if bags and bags.BagFrame and type(bags.CloseAllBags) == "function" then
     bags:CloseAllBags()
   end
 end
