@@ -21,6 +21,9 @@ local DEFAULTS = {
 }
 
 local pendingLayoutUpdate = false
+local auctionHouseBagSuppressionUntil = 0
+local auctionHouseHadVisibleBags = false
+local CloseAuctionHouseBags
 
 local function GetDB()
   if type(_G.SimpleBagPageDB) ~= "table" then
@@ -157,6 +160,41 @@ local function ApplyContainerUpdate(container)
   ApplyCombinedReagentGap()
 end
 
+local function AreDefaultBagsShown()
+  if ContainerFrameCombinedBags and ContainerFrameCombinedBags:IsShown() then
+    return true
+  end
+
+  for i = 1, NUM_CONTAINER_FRAMES do
+    local frame = _G["ContainerFrame" .. i]
+    if frame and frame:IsShown() then
+      return true
+    end
+  end
+
+  return false
+end
+
+local function AreElvUIBagsShown()
+  ---@diagnostic disable-next-line: undefined-field
+  local elvuiTable = _G.ElvUI
+  local E = elvuiTable and elvuiTable[1]
+  ---@diagnostic disable-next-line: undefined-field
+  local bags = E and E.Bags
+  return bags and bags.BagFrame and bags.BagFrame:IsShown() or false
+end
+
+local function AreAnyBagsShown()
+  return AreDefaultBagsShown() or AreElvUIBagsShown()
+end
+
+local function IsAuctionHouseBagSuppressionActive()
+  return IsAuctionHouseAutoOpenDisabled()
+    and _G.AuctionHouseFrame
+    and _G.AuctionHouseFrame:IsShown()
+    and GetTime() < auctionHouseBagSuppressionUntil
+end
+
 local function HookContainer(container)
   if not container or container.__simpleBagPageHooked then
     return
@@ -173,6 +211,10 @@ local function HookContainer(container)
 
   container:HookScript("OnShow", function()
     ApplyContainerUpdate(container)
+
+    if IsAuctionHouseBagSuppressionActive() and not auctionHouseHadVisibleBags then
+      CloseAuctionHouseBags()
+    end
   end)
 end
 
@@ -194,7 +236,7 @@ local function HookElvUIBags()
   _G.SimpleBagPageElvUIHooked = true
 end
 
-local function CloseAuctionHouseBags()
+function CloseAuctionHouseBags()
   if _G.CloseAllBags and _G.AuctionHouseFrame and _G.AuctionHouseFrame:IsShown() then
     _G.CloseAllBags(_G.AuctionHouseFrame)
   end
@@ -214,11 +256,17 @@ local function RequestAuctionHouseBagClose()
     return
   end
 
-  C_Timer.After(0, function()
-    if _G.AuctionHouseFrame and _G.AuctionHouseFrame:IsShown() then
-      CloseAuctionHouseBags()
-    end
-  end)
+  auctionHouseHadVisibleBags = AreAnyBagsShown()
+  auctionHouseBagSuppressionUntil = GetTime() + 0.5
+
+  if not auctionHouseHadVisibleBags then
+    CloseAuctionHouseBags()
+  end
+end
+
+local function ClearAuctionHouseBagSuppression()
+  auctionHouseBagSuppressionUntil = 0
+  auctionHouseHadVisibleBags = false
 end
 
 local function HookItemButtonCount()
@@ -255,9 +303,8 @@ local function RegisterSlashCommands()
 
     if command == "ah off" then
       SetAuctionHouseAutoOpenDisabled(true)
-      if _G.CloseAllBags and _G.AuctionHouseFrame and _G.AuctionHouseFrame:IsShown() then
-        _G.CloseAllBags(_G.AuctionHouseFrame)
-      end
+      ClearAuctionHouseBagSuppression()
+      CloseAuctionHouseBags()
       PrintStatus("已关闭拍卖行自动开包。")
       return
     end
@@ -282,6 +329,7 @@ local function Initialize()
   frame:RegisterEvent("PLAYER_ENTERING_WORLD")
   frame:RegisterEvent("BANKFRAME_OPENED")
   frame:RegisterEvent("AUCTION_HOUSE_SHOW")
+  frame:RegisterEvent("AUCTION_HOUSE_CLOSED")
   frame:SetScript("OnEvent", function(_, event, ...)
     HookElvUIBags()
     HookContainer(ContainerFrameCombinedBags)
@@ -292,6 +340,10 @@ local function Initialize()
 
     if event == "AUCTION_HOUSE_SHOW" then
       RequestAuctionHouseBagClose()
+    elseif event == "AUCTION_HOUSE_CLOSED" then
+      ClearAuctionHouseBagSuppression()
+    elseif event == "BAG_UPDATE_DELAYED" and IsAuctionHouseBagSuppressionActive() and not auctionHouseHadVisibleBags then
+      CloseAuctionHouseBags()
     end
 
     RequestLayoutUpdate()
