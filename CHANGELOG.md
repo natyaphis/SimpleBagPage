@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- Updated addon version metadata.
+
 ## 1.0.5
 
 - Reduced bag flicker when opening the auction house by closing auto-opened bags immediately instead of waiting until the next frame.
@@ -24,10 +28,6 @@ All notable changes to this project will be documented in this file.
 
 - Release SimpleBagPage v1.0.0
 - Updated addon version metadata.
-
-## Unreleased
-
-- Maintenance update.
 
 ## 1.0.0
 
